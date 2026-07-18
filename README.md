@@ -1,77 +1,82 @@
 # Customer Churn Predictor
 
-Predict which telecom customers are likely to leave, using the IBM Telco Customer Churn dataset and a scikit-learn Random Forest model.
+Mid-level ML portfolio project: predict which telecom customers are likely to leave, compare models, tune a business-aware decision threshold, and demo results in Streamlit.
 
-**Free hosting (recommended):**
+**Live code:** https://github.com/pavankv241/customer-churn-predictor
 
-| Platform | Role |
-|----------|------|
-| [Streamlit Community Cloud](https://share.streamlit.io) | Primary — deploy from GitHub in a few clicks |
-| [Hugging Face Spaces](https://huggingface.co/spaces) (Streamlit) | Backup — same `app.py` + `requirements.txt` |
-| GitHub | Source repo required by both hosts |
+## Why this project (interview framing)
 
-## Quick start (local)
+| Weak demo | This repo |
+|-----------|-----------|
+| One script, one model | Modular `src/` package |
+| Accuracy only | ROC AUC + precision/recall/F1 |
+| Default 0.5 cutoff | Cost-based threshold (missed churn > wasted outreach) |
+| No EDA story | Notebook + Insights tab |
 
-```bash
-cd "Customer Churn"
-python3 -m venv .venv
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-python train_model.py       # only needed if you retrain
-streamlit run app.py
-```
+## Problem
 
-Open the URL shown in the terminal (usually `http://localhost:8501`).
+IBM Telco Customer Churn (~7k customers). Positive class ≈ 26%. Goal: rank likely churners and choose a decision threshold aligned with retention economics.
+
+## Approach
+
+1. **Clean** — coerce `TotalCharges`, drop invalid rows, encode target  
+2. **Engineer** — `tenure_bucket`, `avg_monthly_spend`, `service_count`  
+3. **Compare** — Logistic Regression, Random Forest, Gradient Boosting  
+4. **Select** — best ROC AUC on stratified holdout  
+5. **Tune threshold** — minimize `5 * FN + 1 * FP`  
+6. **Serve** — Streamlit app (Overview / Predict / Model Lab / Insights)
+
+Imbalance strategy: stratified split + `class_weight="balanced"` where supported. SMOTE is deferred on purpose (harder to explain, easy to leak if misused).
 
 ## Project layout
 
 ```
-app.py                      # Streamlit UI + predictions
-train_model.py              # Train and save the model
-requirements.txt
+app.py                      # Streamlit UI
+train_model.py              # Train, compare, tune, save artifacts
+src/
+  config.py  data.py  features.py  models.py  evaluate.py  explain.py
+notebooks/01_eda_and_insights.ipynb
+tests/
+models/                     # best pipeline + meta
+reports/                    # comparison, ROC, confusion, metrics.json
 data/Telco-Customer-Churn.csv
-models/churn_pipeline.joblib
-models/model_meta.joblib
 ```
 
-## Deploy on Streamlit Community Cloud (primary)
-
-1. Create a **public** GitHub repo and push this project (include `models/` so the host does not retrain).
-2. Go to [share.streamlit.io](https://share.streamlit.io) and sign in with GitHub.
-3. Click **New app** → select your repo → set **Main file path** to `app.py`.
-4. Deploy. Share the public URL when it finishes.
-
-Tips:
-
-- Keep `requirements.txt` lean (already done — no TensorFlow).
-- If the app sleeps after idle time, the first visit may take a few seconds to wake up.
-
-## Deploy on Hugging Face Spaces (backup)
-
-1. Create a new Space → SDK: **Streamlit**.
-2. Upload the project files (or connect the GitHub repo), including `app.py`, `requirements.txt`, `data/`, and `models/`.
-3. HF installs deps from `requirements.txt` and runs `app.py` automatically.
-
-Optional Space metadata (add as `README.md` front matter on HF only, or keep a separate Space README):
-
-```yaml
----
-title: Customer Churn Predictor
-sdk: streamlit
-app_file: app.py
----
-```
-
-## Retraining
+## Quick start
 
 ```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 python train_model.py
+streamlit run app.py
+pytest -q
 ```
 
-This overwrites `models/churn_pipeline.joblib` and `models/model_meta.joblib`. Commit the new files before redeploying.
+## Latest training snapshot
 
-## Model notes
+Re-run `python train_model.py` to refresh. Typical holdout results:
 
-- Features: demographics, services, contract, charges
-- Preprocessing: one-hot encoding for categoricals
-- Metrics printed at train time (accuracy, F1, ROC AUC)
+- Models compared on ROC AUC
+- Best model and tuned threshold written to `reports/metrics.json`
+- Confusion matrix uses the **tuned** threshold (not 0.5)
+
+## Free hosting
+
+1. Push to GitHub (already public)  
+2. [Streamlit Community Cloud](https://share.streamlit.io) → New app → Main file `app.py`  
+3. Backup: [Hugging Face Spaces](https://huggingface.co/spaces) (Streamlit SDK)
+
+## Questions you should be ready to answer
+
+- Why ROC AUC over accuracy?  
+- Why not start with SMOTE?  
+- What do `tenure_bucket` / `service_count` capture?  
+- Why is FN cost higher than FP in the threshold objective?  
+- What would you add next (calibration, time-based validation, uplift modeling)?
+
+## Limitations
+
+- Single observational snapshot — not causal  
+- No customer lifetime value in the cost matrix (proxy weights only)  
+- No production monitoring / drift detection yet

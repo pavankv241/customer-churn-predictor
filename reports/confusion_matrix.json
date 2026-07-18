@@ -1,0 +1,11 @@
+{
+  "threshold": 0.125,
+  "tn": 579,
+  "fp": 454,
+  "fn": 33,
+  "tp": 341,
+  "labels": [
+    "Stay",
+    "Churn"
+  ]
+}
