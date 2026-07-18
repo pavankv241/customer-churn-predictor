@@ -1,93 +1,100 @@
-# Customer Churn Predictor
+# Customer Churn Scoring Service
 
-Predict which telecom customers are likely to leave using service and billing data. Compare models, tune a decision threshold, and score customers in a Streamlit app (form or CSV upload).
+Software engineering project: a **FastAPI** prediction service with validation, SQLite audit history, Docker Compose, CI, and a Streamlit client UI.
 
-**Live demo:** https://customer-churn-predictor-lhlfqhgmrqvhawhpjxkx6d.streamlit.app/
+**Live UI:** https://customer-churn-predictor-lhlfqhgmrqvhawhpjxkx6d.streamlit.app/  
+**Source:** https://github.com/pavankv241/customer-churn-predictor
 
-**Source code:** https://github.com/pavankv241/customer-churn-predictor
-
-## Why this project (interview framing)
-
-| Weak demo | This repo |
-|-----------|-----------|
-| One script, one model | Modular `src/` package |
-| Accuracy only | ROC AUC + precision/recall/F1 |
-| Default 0.5 cutoff | Cost-based threshold (missed churn > wasted outreach) |
-| No EDA story | Notebook + Insights tab |
-
-## Problem
-
-IBM Telco Customer Churn (~7k customers). Positive class ≈ 26%. Goal: rank likely churners and choose a decision threshold aligned with retention economics.
-
-## Approach
-
-1. **Clean** — coerce `TotalCharges`, drop invalid rows, encode target  
-2. **Engineer** — `tenure_bucket`, `avg_monthly_spend`, `service_count`  
-3. **Compare** — Logistic Regression, Random Forest, Gradient Boosting  
-4. **Select** — best ROC AUC on stratified holdout  
-5. **Tune threshold** — minimize `5 * FN + 1 * FP`  
-6. **Serve** — Streamlit app (Overview / Predict / Upload CSV / Model Lab / Insights)
-
-### Upload CSV demo
-
-1. Open the **Upload CSV** tab  
-2. Download the sample file (or use any Telco-format CSV)  
-3. Click **Score uploaded customers**  
-4. If `Churn` is present, the app **verifies** predictions against those labels  
-
-The model was trained on `data/Telco-Customer-Churn.csv` and stored in `models/`. Uploads are scored only — not used for retraining.
-
-Imbalance strategy: stratified split + `class_weight="balanced"` where supported. SMOTE is deferred on purpose (harder to explain, easy to leak if misused).
-
-## Project layout
+## Architecture
 
 ```
-app.py                      # Streamlit UI
-train_model.py              # Train, compare, tune, save artifacts
-src/
-  config.py  data.py  features.py  models.py  evaluate.py  explain.py
-notebooks/01_eda_and_insights.ipynb
-tests/
-models/                     # best pipeline + meta
-reports/                    # comparison, ROC, confusion, metrics.json
-data/Telco-Customer-Churn.csv
+User → Streamlit (web/) → HTTP JSON → FastAPI (api/)
+                              ↓
+                     Pydantic validation
+                              ↓
+                     PredictionService (src/ ML pipeline)
+                              ↓
+                     SQLite audit log (data/predictions.db)
 ```
 
-## Quick start
+| Layer | Responsibility |
+|-------|----------------|
+| `api/` | HTTP API, schemas, middleware, persistence |
+| `src/` | Shared ML clean/features/score logic |
+| `web/` | UI client (no direct model load for scoring) |
+| `models/` | Trained pipeline artifact |
+| `tests/` | Unit + API (`TestClient`) tests |
+
+## API
+
+After starting the API, open interactive docs: http://127.0.0.1:8000/docs
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/health` | Liveness + model status |
+| POST | `/predict` | Score one customer (JSON) |
+| POST | `/predict/batch` | Score a JSON list |
+| POST | `/predict/csv` | Upload CSV batch |
+| GET | `/predictions` | Recent audit history |
+
+### Example
+
+```bash
+curl -s http://127.0.0.1:8000/health | jq
+
+curl -s -X POST http://127.0.0.1:8000/predict \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "gender":"Female","SeniorCitizen":0,"Partner":"Yes","Dependents":"No",
+    "tenure":1,"PhoneService":"No","MultipleLines":"No phone service",
+    "InternetService":"DSL","OnlineSecurity":"No","OnlineBackup":"Yes",
+    "DeviceProtection":"No","TechSupport":"No","StreamingTV":"No",
+    "StreamingMovies":"No","Contract":"Month-to-month","PaperlessBilling":"Yes",
+    "PaymentMethod":"Electronic check","MonthlyCharges":29.85,"TotalCharges":29.85
+  }' | jq
+```
+
+## Run locally
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-python train_model.py
+
+# Terminal 1 — API
+uvicorn api.main:app --reload --port 8000
+
+# Terminal 2 — UI (talks to API)
+export API_URL=http://127.0.0.1:8000
 streamlit run app.py
+
+# Tests
 pytest -q
 ```
 
-## Latest training snapshot
+Retrain model (optional): `python train_model.py`
 
-Re-run `python train_model.py` to refresh. Typical holdout results:
+## Docker Compose
 
-- Models compared on ROC AUC
-- Best model and tuned threshold written to `reports/metrics.json`
-- Confusion matrix uses the **tuned** threshold (not 0.5)
+```bash
+docker compose up --build
+```
 
-## Free hosting
+- API: http://localhost:8000/docs  
+- UI: http://localhost:8501  
 
-1. Push to GitHub (already public)  
-2. [Streamlit Community Cloud](https://share.streamlit.io) → New app → Main file `app.py`  
-3. Backup: [Hugging Face Spaces](https://huggingface.co/spaces) (Streamlit SDK)
+## CI
 
-## Questions you should be ready to answer
+GitHub Actions (`.github/workflows/ci.yml`) installs deps and runs `pytest` on every push/PR to `main`.
 
-- Why ROC AUC over accuracy?  
-- Why not start with SMOTE?  
-- What do `tenure_bucket` / `service_count` capture?  
-- Why is FN cost higher than FP in the threshold objective?  
-- What would you add next (calibration, time-based validation, uplift modeling)?
+## Design decisions
 
-## Limitations
+- **API owns scoring** — UI is a client; easier to swap frontends or call from other services  
+- **Pydantic validation** — bad payloads fail with `422` before touching the model  
+- **SQLite history** — lightweight audit trail without hosting Postgres  
+- **Cost-tuned threshold** baked into saved model meta — API applies it consistently  
+- **SMOTE deferred** — stratified split + class weights first (simpler, less leak risk)
 
-- Single observational snapshot — not causal  
-- No customer lifetime value in the cost matrix (proxy weights only)  
-- No production monitoring / drift detection yet
+## Resume line
+
+Designed a FastAPI churn-scoring service with input validation, SQLite audit history, Docker Compose, and a Streamlit client; covered by API tests and GitHub Actions CI.
