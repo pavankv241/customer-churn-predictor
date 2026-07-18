@@ -5,6 +5,44 @@ Software engineering project: a **FastAPI** prediction service with validation, 
 **Live UI:** https://customer-churn-predictor-lhlfqhgmrqvhawhpjxkx6d.streamlit.app/  
 **Source:** https://github.com/pavankv241/customer-churn-predictor
 
+## Free hosting
+
+| Piece | Platform | Cost |
+|-------|----------|------|
+| UI | [Streamlit Community Cloud](https://share.streamlit.io) | Free |
+| API | [Render](https://render.com) free web service | Free (sleeps after idle) |
+
+### 1) Deploy the API on Render
+
+1. Sign up at https://render.com with GitHub  
+2. **New** → **Blueprint** (uses [`render.yaml`](render.yaml))  
+   — or **Web Service** → repo `pavankv241/customer-churn-predictor`  
+3. Settings if creating manually:
+   - **Runtime:** Python  
+   - **Build:** `pip install -r requirements.txt`  
+   - **Start:** `uvicorn api.main:app --host 0.0.0.0 --port $PORT`  
+   - **Instance:** Free  
+4. Deploy → copy the URL, e.g. `https://customer-churn-api.onrender.com`  
+5. Check: open `/health` and `/docs` on that URL  
+
+First request after idle can take ~30–60s (free tier cold start).
+
+### 2) Point Streamlit Cloud at the API
+
+1. Open your app on https://share.streamlit.io  
+2. **⋮** → **Settings** → **Secrets**  
+3. Paste:
+
+```toml
+API_URL = "https://YOUR-SERVICE.onrender.com"
+```
+
+4. Save → reboot the app  
+
+Predict / Upload / History will call Render. Overview charts still use bundled data/reports.
+
+Local secrets example: [`.streamlit/secrets.toml.example`](.streamlit/secrets.toml.example)
+
 ## Architecture
 
 ```

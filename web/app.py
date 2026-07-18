@@ -25,13 +25,26 @@ from src.data import clean_data, load_raw
 from src.explain import insight_bullets
 
 SAMPLE_UPLOAD_PATH = ROOT / "data" / "sample_upload.csv"
-API_URL = os.getenv("API_URL", "http://127.0.0.1:8000").rstrip("/")
 
 st.set_page_config(
     page_title="Customer Churn Predictor",
     page_icon="📉",
     layout="wide",
 )
+
+
+def get_api_url() -> str:
+    """Resolve API base URL: Streamlit secrets → env → local default."""
+    try:
+        if "API_URL" in st.secrets:
+            return str(st.secrets["API_URL"]).rstrip("/")
+    except Exception:  # noqa: BLE001 — secrets file may be absent locally
+        pass
+    return os.getenv("API_URL", "http://127.0.0.1:8000").rstrip("/")
+
+
+API_URL = get_api_url()
+
 
 
 @st.cache_data
