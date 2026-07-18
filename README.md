@@ -1,6 +1,6 @@
 # Customer Churn Predictor
 
-Mid-level ML portfolio project: predict which telecom customers are likely to leave, compare models, tune a business-aware decision threshold, and demo results in Streamlit.
+Predict which telecom customers are likely to leave using service and billing data. Compare models, tune a decision threshold, and score customers in a Streamlit app (form or CSV upload).
 
 **Live demo:** https://customer-churn-predictor-lhlfqhgmrqvhawhpjxkx6d.streamlit.app/
 

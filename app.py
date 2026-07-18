@@ -418,8 +418,8 @@ def main() -> None:
 
     st.title("Customer Churn Predictor")
     st.caption(
-        "Mid-level ML portfolio project — modular pipeline, model comparison, "
-        "business-aware thresholding, and a live demo."
+        "Predict telecom customer churn from service and billing data — "
+        "score one customer or upload a CSV for batch predictions."
     )
 
     tab_overview, tab_predict, tab_upload, tab_lab, tab_insights = st.tabs(
