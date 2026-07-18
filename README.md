@@ -2,7 +2,9 @@
 
 Mid-level ML portfolio project: predict which telecom customers are likely to leave, compare models, tune a business-aware decision threshold, and demo results in Streamlit.
 
-**Live code:** https://github.com/pavankv241/customer-churn-predictor
+**Live demo:** https://customer-churn-predictor-lhlfqhgmrqvhawhpjxkx6d.streamlit.app/
+
+**Source code:** https://github.com/pavankv241/customer-churn-predictor
 
 ## Why this project (interview framing)
 
