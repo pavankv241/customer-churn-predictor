@@ -18,12 +18,14 @@ Software engineering project: a **FastAPI** prediction service with validation, 
 2. **New** → **Blueprint** (uses [`render.yaml`](render.yaml))  
    — or **Web Service** → repo `pavankv241/customer-churn-predictor`  
 3. Settings if creating manually:
-   - **Runtime:** Python  
-   - **Build:** `pip install -r requirements.txt`  
-   - **Start:** `uvicorn api.main:app --host 0.0.0.0 --port $PORT`  
-   - **Instance:** Free  
-4. Deploy → copy the URL, e.g. `https://customer-churn-api.onrender.com`  
-5. Check: open `/health` and `/docs` on that URL  
+   - **Runtime:** Python **3.12** (important — avoids building pandas from source)
+   - **Build:** `pip install -r requirements-api.txt`
+   - **Start:** `uvicorn api.main:app --host 0.0.0.0 --port $PORT`
+   - **Instance:** Free
+4. Deploy → copy the URL, e.g. `https://customer-churn-api.onrender.com`
+5. Check: open `/health` and `/docs` on that URL
+
+Use `requirements-api.txt` (not full `requirements.txt`) so Render does not install Streamlit/matplotlib.
 
 First request after idle can take ~30–60s (free tier cold start).
 
