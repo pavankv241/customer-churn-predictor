@@ -10,6 +10,12 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 
+from src.batch import (
+    REQUIRED_INPUT_COLS,
+    score_customers,
+    validate_upload,
+    verification_summary,
+)
 from src.config import (
     COMPARISON_PATH,
     CONFUSION_PATH,
@@ -19,10 +25,13 @@ from src.config import (
     METRICS_PATH,
     PIPELINE_PATH,
     ROC_PATH,
+    ROOT,
 )
 from src.data import clean_data, load_raw
 from src.explain import insight_bullets, risk_band
 from src.features import engineer_features
+
+SAMPLE_UPLOAD_PATH = ROOT / "data" / "sample_upload.csv"
 
 st.set_page_config(
     page_title="Customer Churn Predictor",
@@ -281,6 +290,109 @@ def render_model_lab(reports: dict, meta: dict) -> None:
             st.json(metrics.get("cost_matrix", {}))
 
 
+def render_upload(pipeline, meta: dict) -> None:
+    """Upload a Telco-style CSV → score each row with the trained model."""
+    threshold = float(meta.get("threshold", 0.5))
+    st.subheader("Batch demo — upload CSV")
+    st.markdown(
+        """
+        **Where does the model get its knowledge?**  
+        It was trained once on the bundled IBM Telco dataset
+        (`data/Telco-Customer-Churn.csv`) and saved in `models/churn_pipeline.joblib`.
+        Your upload is **not** used to retrain — it is only scored.
+
+        **How verification works:**  
+        If your CSV includes a `Churn` column (`Yes`/`No`), we compare the model's
+        prediction to that label and show accuracy. Without `Churn`, you still get
+        risk scores for every row.
+        """
+    )
+
+    st.caption(f"Decision threshold = **{threshold:.2f}** (from training cost tuning)")
+
+    if SAMPLE_UPLOAD_PATH.exists():
+        st.download_button(
+            "Download sample CSV (20 rows)",
+            data=SAMPLE_UPLOAD_PATH.read_bytes(),
+            file_name="sample_upload.csv",
+            mime="text/csv",
+        )
+
+    with st.expander("Required columns"):
+        st.code(", ".join(REQUIRED_INPUT_COLS))
+        st.write("Optional: `customerID`, `Churn` (for verification)")
+
+    uploaded = st.file_uploader("Upload customer CSV", type=["csv"])
+    if uploaded is None:
+        return
+
+    try:
+        raw = pd.read_csv(uploaded)
+    except Exception as exc:  # noqa: BLE001
+        st.error(f"Could not read CSV: {exc}")
+        return
+
+    missing = validate_upload(raw)
+    if missing:
+        st.error(f"Missing required columns: {', '.join(missing)}")
+        return
+
+    st.write(f"Uploaded **{len(raw):,}** rows. Preview:")
+    st.dataframe(raw.head(10), use_container_width=True)
+
+    if st.button("Score uploaded customers", type="primary"):
+        with st.spinner("Scoring..."):
+            scored = score_customers(pipeline, raw, threshold)
+            summary = verification_summary(scored)
+
+        pred_yes = int((scored["predicted_churn"] == "Yes").sum())
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Rows scored", f"{len(scored):,}")
+        c2.metric("Predicted churn", f"{pred_yes:,}")
+        c3.metric("Predicted churn rate", f"{pred_yes / len(scored):.1%}")
+
+        if summary:
+            st.success(
+                f"Verification vs `Churn` labels: "
+                f"**{summary['correct']}/{summary['rows']}** correct "
+                f"({summary['accuracy']:.1%} accuracy)"
+            )
+            v1, v2 = st.columns(2)
+            v1.metric("Actual churn rate", f"{summary['actual_churn_rate']:.1%}")
+            v2.metric("Predicted churn rate", f"{summary['predicted_churn_rate']:.1%}")
+        else:
+            st.info(
+                "No `Churn` column in file — showing predictions only "
+                "(nothing to verify against)."
+            )
+
+        show_cols = [
+            c
+            for c in [
+                "customerID",
+                "Contract",
+                "tenure",
+                "MonthlyCharges",
+                "churn_probability",
+                "predicted_churn",
+                "risk_band",
+                "actual_churn",
+                "correct",
+            ]
+            if c in scored.columns
+        ]
+        st.dataframe(
+            scored[show_cols].sort_values("churn_probability", ascending=False),
+            use_container_width=True,
+        )
+        st.download_button(
+            "Download scored CSV",
+            data=scored.to_csv(index=False).encode("utf-8"),
+            file_name="churn_scored.csv",
+            mime="text/csv",
+        )
+
+
 def render_insights() -> None:
     st.subheader("Insights you can cite in interviews")
     for i, bullet in enumerate(insight_bullets(), start=1):
@@ -310,13 +422,15 @@ def main() -> None:
         "business-aware thresholding, and a live demo."
     )
 
-    tab_overview, tab_predict, tab_lab, tab_insights = st.tabs(
-        ["Overview", "Predict", "Model Lab", "Insights"]
+    tab_overview, tab_predict, tab_upload, tab_lab, tab_insights = st.tabs(
+        ["Overview", "Predict", "Upload CSV", "Model Lab", "Insights"]
     )
     with tab_overview:
         render_overview(df, meta, reports)
     with tab_predict:
         render_predict(pipeline, meta)
+    with tab_upload:
+        render_upload(pipeline, meta)
     with tab_lab:
         render_model_lab(reports, meta)
     with tab_insights:

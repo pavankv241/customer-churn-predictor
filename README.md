@@ -26,7 +26,16 @@ IBM Telco Customer Churn (~7k customers). Positive class ≈ 26%. Goal: rank lik
 3. **Compare** — Logistic Regression, Random Forest, Gradient Boosting  
 4. **Select** — best ROC AUC on stratified holdout  
 5. **Tune threshold** — minimize `5 * FN + 1 * FP`  
-6. **Serve** — Streamlit app (Overview / Predict / Model Lab / Insights)
+6. **Serve** — Streamlit app (Overview / Predict / Upload CSV / Model Lab / Insights)
+
+### Upload CSV demo
+
+1. Open the **Upload CSV** tab  
+2. Download the sample file (or use any Telco-format CSV)  
+3. Click **Score uploaded customers**  
+4. If `Churn` is present, the app **verifies** predictions against those labels  
+
+The model was trained on `data/Telco-Customer-Churn.csv` and stored in `models/`. Uploads are scored only — not used for retraining.
 
 Imbalance strategy: stratified split + `class_weight="balanced"` where supported. SMOTE is deferred on purpose (harder to explain, easy to leak if misused).
 
