@@ -64,6 +64,18 @@ async def add_request_id(request: Request, call_next):
     return response
 
 
+@app.get("/")
+def root() -> dict[str, str]:
+    """Friendly landing page so the service URL is not a bare 404."""
+    return {
+        "service": "Customer Churn API",
+        "status": "ok",
+        "docs": "/docs",
+        "health": "/health",
+        "predict": "POST /predict",
+    }
+
+
 app.include_router(health.router)
 app.include_router(predict.router)
 app.include_router(history.router)
