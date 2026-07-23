@@ -3,7 +3,8 @@
 Software engineering project: a **FastAPI** prediction service with validation, SQLite audit history, Docker Compose, CI, and a Streamlit client UI.
 
 **Live UI:** https://customer-churn-predictor-lhlfqhgmrqvhawhpjxkx6d.streamlit.app/  
-**Source:** https://github.com/pavankv241/customer-churn-predictor
+**Source:** https://github.com/pavankv241/customer-churn-predictor  
+**Technical overview:** [docs/TECHNICAL_OVERVIEW.md](docs/TECHNICAL_OVERVIEW.md)
 
 ## Free hosting
 
